@@ -11,5 +11,4 @@ class Engine : public AbstractEngine {
     
     public:
     void find_best_move(const Board& b) override;
-
 };
