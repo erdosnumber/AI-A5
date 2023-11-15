@@ -12,7 +12,12 @@
 
 /*
 Remember to not keep 7 as hardcoded anywhere, THE THIRD TYPE OF BOARD HAS 8*8 SQUARE
+
+CHECK INVERT CONDITION IN SIMULATE CAREFULLY
+
+YOU WERE ALSO GETTING ASSERTION  ERROR IN UCT_MOVES THING. MAKE SURE TO FIX THAT
 */
+
 
 std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
 
@@ -105,75 +110,122 @@ int opponent_piece_points(const Board & c)
 }
 
 
-int termination_condition(Board b)
+int termination_condition(const Board& b)
 {
     if(b.get_legal_moves().size() == 0) return 1;
     else if(our_piece_points(b)==10 && opponent_piece_points(b)==10) return 2;
     else return 3;
 }
 
+bool equal_boards(const Board& b1,const Board &b2)
+{
+    bool equal=true;
+
+    equal &= (b1.data.w_rook_1 == b2.data.w_rook_1);
+    equal &= (b1.data.w_rook_2 == b2.data.w_rook_2);
+    equal &= (b1.data.w_king == b2.data.w_king);
+    equal &= (b1.data.w_bishop == b2.data.w_bishop);
+    equal &= (b1.data.w_knight_1 == b2.data.w_knight_1);
+    equal &= (b1.data.w_knight_2 == b2.data.w_knight_2);
+    equal &= (b1.data.w_pawn_1 == b2.data.w_pawn_1);
+    equal &= (b1.data.w_pawn_2 == b2.data.w_pawn_2);
+    equal &= (b1.data.w_pawn_3 == b2.data.w_pawn_3);
+    equal &= (b1.data.w_pawn_4 == b2.data.w_pawn_4);
+
+    equal &= (b1.data.b_rook_1 == b2.data.b_rook_1);
+    equal &= (b1.data.b_rook_2 == b2.data.b_rook_2);
+    equal &= (b1.data.b_king == b2.data.b_king);
+    equal &= (b1.data.b_bishop == b2.data.b_bishop);
+    equal &= (b1.data.b_knight_1 == b2.data.b_knight_1);
+    equal &= (b1.data.b_knight_2 == b2.data.b_knight_2);
+    equal &= (b1.data.b_pawn_1 == b2.data.b_pawn_1);
+    equal &= (b1.data.b_pawn_2 == b2.data.b_pawn_2);
+    equal &= (b1.data.b_pawn_3 == b2.data.b_pawn_3);
+    equal &= (b1.data.b_pawn_4 == b2.data.b_pawn_4);
+
+    equal &= (b1.data.player_to_play == b2.data.player_to_play);
+    equal &= (b1.data.board_type == b2.data.board_type);
+
+    return equal;
+}
+
+U16 random_move(const Board& b)
+{
+    std::vector<U16> moves;
+    for(auto move:b.get_legal_moves()) moves.push_back(move);
+    shuffle(moves.begin(),moves.end(),rng);
+    return moves[0];
+}
+
+/********************************* NODE ************************************************************************/
+
 class Node
 {
     public:
+
     double q=0;
     double n=0;
     int depth=0;
-    std::vector<std::pair<Node*,U16>> children;
-    std::vector<U16> unexplored_moves;
+    int id=0;
+    std::vector<std::pair<int,U16>> children={};
+    std::vector<U16> unexplored_moves={};
     Board board;
-    Node(const Board b,int depth)
+
+    Node(const Board& b,int depth,int id)
     {
-        this->board=Board(b);
+        this->board=b;
         for(auto move:this->board.get_legal_moves()) this->unexplored_moves.push_back(move);
         this->depth=depth;
+        this->id=id;
     }
+
     Node(){}
 };
+
+/********************************* MCTS **************************************************************************/
 
 class MCTS
 {
     public:
-    Node* root;
-    double exploration_weight=0;
+
+    int root=0;
+    double weight=0;
     double iters=0;
     double sims=0;
-    std::vector<Node*> all_nodes;
+    std::vector<Node> all_nodes={};
 
-    MCTS(const Board b,double weight,double iters,double sims)
+    MCTS() {}
+
+    MCTS(const Board& b,double weight,double iters,double sims)
     {
-        this->root=new Node(b,0);
-        this->all_nodes.push_back(this->root);
-        this->exploration_weight=weight;
+        Node node(b,0,0);
+        this->root=0;
+        this->all_nodes.push_back(node);
+        this->weight=weight;
         this->iters=iters;
         this->sims=sims;
     }
 
-    Node* create_node(Board b,int depth)
+    int create_node(const Board& b,int depth)
     {
-        Node* node_ptr=new Node(b,depth);
-        this->all_nodes.push_back(node_ptr);
-        return node_ptr;
+        Node node(b,depth,this->all_nodes.size());
+        this->all_nodes.push_back(node);
+        return node.id;
     }
 
-    U16 random_move(const Board b)
+    std::pair<int,U16> best_UCT_move(int id)
     {
-        std::vector<U16> moves;
-        for(auto move:b.get_legal_moves()) moves.push_back(move);
-        shuffle(moves.begin(),moves.end(),rng);
-        return moves[0];
-    }
-
-    std::pair<Node*,U16> best_UCT_move(Node* node)
-    {
-        double log_node=log(node->n);
+        double log_node=log(this->all_nodes[id].n);
         double uct=-1e18;
-        Node* next_node=NULL;
+        int next_node=-1;
         U16 next_move=0;
-        for(auto element:node->children)
+
+        for(auto element:this->all_nodes[id].children)
         {
-            Node* child=element.first;
+            int child=element.first;
             U16 move=element.second;
-            double val=(child->q/child->n)+this->exploration_weight*(sqrt(log_node/child->n));
+            double val=(this->all_nodes[child].q/this->all_nodes[child].n)
+            +this->weight*(sqrt(log_node/this->all_nodes[child].n));
             if(val>uct)
             {
                 next_node=child;
@@ -181,55 +233,61 @@ class MCTS
                 uct=val;
             }
         }
-        assert((uct>(-1e18)) && (next_node!=NULL) && (next_move!=0));
+
+        assert((uct>(-1e18)) && (next_node != -1) && (next_move != 0));
 
         return {next_node,next_move};
     }
 
-    std::vector<Node*> select()
+    std::vector<int> select()
     {
-        std::vector<Node*> path;
-        Node* node_ptr=this->root;
+        std::vector<int> path;
+        int node_ptr=this->root;
+
         while(true)
         {
             path.push_back(node_ptr);
 
-            if(node_ptr->unexplored_moves.size() != 0)
+            if((this->all_nodes[node_ptr].unexplored_moves).size() != 0)
             {
-                Board b=Board(node_ptr->board);
-                U16 next_move=node_ptr->unexplored_moves.back();
+                Board b(this->all_nodes[node_ptr].board);
+                U16 next_move=this->all_nodes[node_ptr].unexplored_moves.back();
                 b.do_move_(next_move);
-                node_ptr->unexplored_moves.pop_back();
+                this->all_nodes[node_ptr].unexplored_moves.pop_back();
 
-                Node* new_node=create_node(b,node_ptr->depth+1);
-                node_ptr->children.push_back({new_node,next_move});
+                int new_node=create_node(b,this->all_nodes[node_ptr].depth+1);
+                this->all_nodes[node_ptr].children.push_back({new_node,next_move});
                 path.push_back(new_node);
                 break;
             }
 
-            node_ptr=this->best_UCT_move(node_ptr).first;
+            //here u would need to ensure that node_ptr is not a terminal state
+            if(this->all_nodes[node_ptr].children.size()!=0) node_ptr=this->best_UCT_move(node_ptr).first;
+            else break;
         }
 
         return path;
     }
 
-    double simulate(Node* node_ptr)
+    double simulate(int node_ptr)
     {
         int simulations=0;
+        //check invert condition here carefully
         bool invert=false;
-        Board b=node_ptr->board;
+
+        Board b(this->all_nodes[node_ptr].board);
         while(simulations<this->sims)
         {
             output<<simulations<<' '<<our_piece_points(b)<<' '<<opponent_piece_points(b)<<'\n';
             if(termination_condition(b)!=3)
             {
-                if(termination_condition(b) == 2) return 0.5;
+                if(termination_condition(b)==2) return 0.5;
                 sim_count++;
-                if(! invert) return 0;
+                if(invert) return 0;
                 else return 1;
             }
 
-            U16 move=this->random_move(b);
+            U16 move=random_move(b);
             b.do_move_(move);
             invert=!invert;
             simulations+=1;
@@ -237,20 +295,20 @@ class MCTS
         return 0.5;
     }
 
-    void update(std::vector<Node*> nodes,double reward)
+    void update(std::vector<int> nodes,double reward)
     {
         for(int i=nodes.size()-1;i>=0;i--)
         {
-            nodes[i]->n+=1;
-            nodes[i]->q+=reward;
+            this->all_nodes[nodes[i]].n+=1;
+            this->all_nodes[nodes[i]].q+=reward;
             reward=1-reward;
         }
     }
 
     void iterate()
     {
-        std::vector<Node*> path=this->select();
-        Node* expansion_node=path.back();
+        std::vector<int> path=this->select();
+        int expansion_node=path.back();
         double reward=this->simulate(expansion_node);
         this->update(path,reward);
     }
@@ -259,12 +317,13 @@ class MCTS
     {
         for(auto node:this->all_nodes)
         {
-            MCTstatus<<node->depth<<' '<<node->n<<' '<<node->q<<'\n';
+            MCTstatus<<node.depth<<' '<<node.n<<' '<<node.q<<'\n';
         }
     }
+
     void clearMCT()
     {
-        for(auto ptr:this->all_nodes) delete(ptr);
+        return;
     }
 
     U16 startMCT()
@@ -278,12 +337,57 @@ class MCTS
             //std::cout<<i<<' '<<this->all_nodes.size()<<' '<<std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()<<'\n';
         }
         U16 move=this->best_UCT_move(this->root).second;
+        this->root=this->best_UCT_move(this->root).first;
         this->showMCT();
-        /*Dont uncomment this line*/
-        this->clearMCT();
         return move;
     }
+
+    void reroot(const Board& b)
+    {
+        std::vector<U16> unexplored;
+        int cnt=0;
+
+        for(auto move:this->all_nodes[root].unexplored_moves)
+        {
+            Board c(this->all_nodes[root].board);
+            c.do_move_(move);
+            if(equal_boards(c,b))
+            {
+                cnt++;
+                int node_ptr=this->create_node(b,this->all_nodes[root].depth+1);
+                this->all_nodes[root].children.push_back({node_ptr,move});
+            }
+            else unexplored.push_back(move);
+        }
+
+        assert(cnt<=1);
+
+        this->all_nodes[root].unexplored_moves=unexplored;
+
+        int next_root;
+        cnt=0;
+
+        for(auto child:this->all_nodes[root].children)
+        {
+            Board c(this->all_nodes[root].board);
+            c.do_move_(child.second);
+            if(equal_boards(c,b))
+            {
+                cnt=1;
+                next_root=child.first;
+                break;
+            }
+        }
+
+        assert(cnt==1);
+        this->root=next_root;
+    }
+
 };
+
+/***********************************  ACTION STARTS HERE  **********************************************************************************/
+
+MCTS game;
 
 void Engine::find_best_move(const Board& b) {
 
@@ -315,13 +419,16 @@ void Engine::find_best_move(const Board& b) {
     // // just for debugging, to slow down the moves
     // std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
-    if(moves_completed == 0) 
+    if(moves_completed==0) 
     {
         output.open("simulation_log");
         MCTstatus.open("mct_log");
         output<<"LESGO\n\n";
         MCTstatus<<"LESGO\n\n";
+        game = MCTS(b,0.5,500,500);
     }
+
+    else game.reroot(b);
 
     moves_completed+=1;
     sim_count=0;
@@ -329,14 +436,15 @@ void Engine::find_best_move(const Board& b) {
     output<<"\n\nTHIS IS FOR MOVES COMPLETED = "<<moves_completed<<"\n\n";
     MCTstatus<<"\n\nTHIS IS FOR MOVES COMPLETED = "<<moves_completed<<"\n\n";
 
-
     std::cout<<"This is for move: "<<moves_completed<<'\n';
-    MCTS game(b,2,200,500);
 
     auto start_time=std::chrono::high_resolution_clock::now();
     U16 move=game.startMCT();
     auto end_time=std::chrono::high_resolution_clock::now();
+
     std::cout<<"Final total time: "<<std::chrono::duration_cast<std::chrono::milliseconds>(end_time-start_time).count()<<'\n';
     std::cout<<"Terminal states reached: "<<sim_count<<'\n';
+    std::cout<<"Total nodes till now: "<<game.all_nodes.size()<<'\n';
+
     this->best_move=move;
 }
