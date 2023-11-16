@@ -473,17 +473,22 @@ int heuristic_for_selection(const Board & c)
 
 int evaluation_function(const Board & c)
 {
-    int points1=0,points2=0,points3=0,points4=0,points5=0,points6=0;
+    if(c.data.player_to_play == our_player && (c.get_legal_moves().size())==0) return -inf;
+    else if(c.data.player_to_play == opponent_player && (c.get_legal_moves().size()==0)) return inf;
+    else
+    {
+        int points1=0,points2=0,points3=0,points4=0,points5=0,points6=0;
 
-    points1=our_piece_points(c)-opponent_piece_points(c);
-    points2=future_moves(c);
-    points3=king_in_check(c);
-    points4=opponent_pieces_with_no_support(c)-our_pieces_with_no_support(c);
-    points5=opponent_pieces_threatened(c)-our_pieces_threatened(c);
-    int points;
+        points1=our_piece_points(c)-opponent_piece_points(c);
+        points2=future_moves(c);
+        points3=king_in_check(c);
+        points4=opponent_pieces_with_no_support(c)-our_pieces_with_no_support(c);
+        points5=opponent_pieces_threatened(c)-our_pieces_threatened(c);
+        int points;
 
-    points=(100*points1+points2+100*points3+10*points4+100*points5); //dont change any weights now
-    return points;
+        points=(100*points1+points2+100*points3+10*points4+100*points5); //dont change any weights now
+        return points;
+    }
 }
 
 double get_time_left(double total_time)
