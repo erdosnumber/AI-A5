@@ -604,6 +604,26 @@ void undo_last_move(Board& c,U16 move)
 
 std::unordered_map<std::string,int> board_hash;
 
+double piece_time(PieceType piece_type)
+{
+    if(piece_type == PAWN || piece_type == KNIGHT || piece_type == KING) return 1;
+    else return 3;
+}
+
+int piece_time_contribution(const Board& c)
+{
+    //keeping time linear in piece?
+    int cnt=0;
+    for(int i=0;i<board_size;i++)
+    {
+        for(int j=0;j<board_size;j++)
+        {
+            if(c.data.board_0[pos(i,j)] & our_player) cnt+=piece_time(piece_type(c.data.board_0[pos(i,j)]));
+        }
+    }
+    return 100*cnt;
+}
+
 void Engine::find_best_move(const Board& b) {
 
     // pick a random move
@@ -691,12 +711,15 @@ void Engine::find_best_move(const Board& b) {
     else if(current_move<=6) total_time=std::min(1500*factor,time_left);
     else
     {
-        if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(500*factor,time_left);
-        else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(1500*factor,time_left);
-        else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2000*factor,time_left);
-        else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(2250*factor,time_left);
-        else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(2500*factor,time_left);
-        else total_time=std::min(3000*factor,time_left);
+        double piece_difference_factor=factor*piece_time_contribution(b);
+        if(our_piece_points(b)-opponent_piece_points(b)>10) piece_difference_factor*=0.25;
+        else if(our_piece_points(b)-opponent_piece_points(b)>6) piece_difference_factor*=0.75;
+        else if(our_piece_points(b)>=opponent_piece_points(b)) piece_difference_factor*=1;
+        else if(our_piece_points(b)-opponent_piece_points(b) > -4) piece_difference_factor*=1.5;
+        else if(our_piece_points(b)-opponent_piece_points(b) > -6) piece_difference_factor*=3;
+        else piece_difference_factor*=5;
+
+        total_time=250*piece_difference_factor;
     }
 
     while(true)
