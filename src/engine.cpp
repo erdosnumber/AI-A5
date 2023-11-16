@@ -473,8 +473,8 @@ int heuristic_for_selection(const Board & c)
 
 int evaluation_function(const Board & c)
 {
-    if(c.data.player_to_play == our_player && (c.get_legal_moves().size())==0) return -inf;
-    else if(c.data.player_to_play == opponent_player && (c.get_legal_moves().size()==0)) return inf;
+    if((c.data.player_to_play == our_player) && (c.get_legal_moves().size())==0) return -inf;
+    else if((c.data.player_to_play==opponent_player) && (c.get_legal_moves().size()==0)) return inf;
     else
     {
         int points1=0,points2=0,points3=0,points4=0,points5=0,points6=0;
