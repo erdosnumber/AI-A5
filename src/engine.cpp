@@ -686,7 +686,9 @@ void Engine::find_best_move(const Board& b) {
     else if(current_move<=6) total_time=std::min(1500*factor,time_left);
     else
     {
-        if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2000*factor,time_left);
+        if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(500*factor,time_left);
+        else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(1500*factor,time_left);
+        else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2000*factor,time_left);
         else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(2250*factor,time_left);
         else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(2500*factor,time_left);
         else total_time=std::min(3000*factor,time_left);
