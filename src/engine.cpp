@@ -622,7 +622,7 @@ int piece_time_contribution(const Board& c)
             if(c.data.board_0[pos(i,j)] & our_player) cnt+=piece_time(piece_type(c.data.board_0[pos(i,j)]));
         }
     }
-    return 100*cnt;
+    return cnt;
 }
 
 void Engine::find_best_move(const Board& b) {
@@ -712,20 +712,20 @@ void Engine::find_best_move(const Board& b) {
     else if(current_move<=6) total_time=std::min(1500*factor,time_left);
     else if(time_left>10000*factor)
     {
-        if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(1000*factor,time_left);
-        else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(1500*factor,time_left);
-        else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2500*factor,time_left);
-        else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(3000*factor,time_left);
-        else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(3500*factor,time_left);
-        else total_time=std::min(4000*factor,time_left);
+        // if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(1000*factor,time_left);
+        // else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(1500*factor,time_left);
+        // else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2500*factor,time_left);
+        // else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(3000*factor,time_left);
+        // else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(3500*factor,time_left);
+        // else total_time=std::min(4000*factor,time_left);
 
-        // double time_value=500*piece_time_contribution(b);
-        // if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(1000*factor,time_value);
-        // else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(2000*factor,time_value);
-        // else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2500*factor,time_value);
-        // else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(3000*factor,1.5*time_value);
-        // else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(4000*factor,2*time_value);
-        // else total_time=std::min(5000*factor,2.5*time_value);
+        double time_value=500*piece_time_contribution(b);
+        if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(1000*factor,time_value);
+        else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(2000*factor,time_value);
+        else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2500*factor,time_value);
+        else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(3000*factor,1.5*time_value);
+        else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(4000*factor,2*time_value);
+        else total_time=std::min(5000*factor,2.5*time_value);
 
         // total_time=std::min(total_time,time_left);
     }
