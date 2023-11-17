@@ -607,6 +607,7 @@ std::unordered_map<std::string,int> board_hash;
 double piece_time(PieceType piece_type)
 {
     if(piece_type == PAWN || piece_type == KNIGHT || piece_type == KING) return 1;
+    else if(piece_type == BISHOP && board_type == EIGHT_FOUR) return 1;
     else return 3;
 }
 
@@ -709,17 +710,28 @@ void Engine::find_best_move(const Board& b) {
     double time_left=this->time_left.count();
     if(current_move<=3) total_time=std::min(1000*factor,time_left);
     else if(current_move<=6) total_time=std::min(1500*factor,time_left);
+    else if(time_left>3000*factor)
+    {
+        // if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(500*factor,time_left);
+        // else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(1500*factor,time_left);
+        // else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2000*factor,time_left);
+        // else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(2250*factor,time_left);
+        // else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(2500*factor,time_left);
+        // else total_time=std::min(3000*factor,time_left);
+
+        double time_value=500*piece_time_contribution(b);
+        if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(1000*factor,time_value);
+        else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(2000*factor,time_value);
+        else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2500*factor,time_value);
+        else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(3000*factor,1.5*time_value);
+        else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(4000*factor,2*time_value);
+        else total_time=std::min(5000*factor,2.5*time_value);
+
+        total_time=std::min(total_time,time_left);
+    }
     else
     {
-        double piece_difference_factor=factor*piece_time_contribution(b);
-        if(our_piece_points(b)-opponent_piece_points(b)>10) piece_difference_factor*=0.25;
-        else if(our_piece_points(b)-opponent_piece_points(b)>6) piece_difference_factor*=0.75;
-        else if(our_piece_points(b)>=opponent_piece_points(b)) piece_difference_factor*=1;
-        else if(our_piece_points(b)-opponent_piece_points(b) > -4) piece_difference_factor*=1.5;
-        else if(our_piece_points(b)-opponent_piece_points(b) > -6) piece_difference_factor*=3;
-        else piece_difference_factor*=5;
-
-        total_time=250*piece_difference_factor;
+        total_time=std::min(100*factor,time_left);
     }
 
     while(true)
