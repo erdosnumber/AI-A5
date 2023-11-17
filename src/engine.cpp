@@ -604,27 +604,6 @@ void undo_last_move(Board& c,U16 move)
 
 std::unordered_map<std::string,int> board_hash;
 
-double piece_time(PieceType piece_type)
-{
-    if(piece_type == PAWN || piece_type == KNIGHT || piece_type == KING) return 1;
-    else if(piece_type == BISHOP && board_type == EIGHT_FOUR) return 1;
-    else return 3;
-}
-
-int piece_time_contribution(const Board& c)
-{
-    //keeping time linear in piece?
-    int cnt=0;
-    for(int i=0;i<board_size;i++)
-    {
-        for(int j=0;j<board_size;j++)
-        {
-            if(c.data.board_0[pos(i,j)] & our_player) cnt+=piece_time(piece_type(c.data.board_0[pos(i,j)]));
-        }
-    }
-    return cnt;
-}
-
 void Engine::find_best_move(const Board& b) {
 
     // pick a random move
@@ -677,92 +656,87 @@ void Engine::find_best_move(const Board& b) {
         move_choices.push_back({heuristic_for_selection(c),move});
     }
 
-    std::sort(move_choices.begin(),move_choices.end());
-
-    // std::cout<<"Number of valid moves: "<<moveset.size()<<std::endl;
-    // for(auto choices:move_choices)
-    // {
-    //     std::cout<<choices.first<<" "<<move_to_str(choices.second)<<' ';
-    // }
-    // std::cout<<std::endl;
-
-    Board c(b);
-    this->best_move=move_choices.back().second;
-    c.do_move_(this->best_move);
-    std::string prev_hs=board_to_str(&(c.data));
-    undo_last_move(c,this->best_move);
-
-    if(board_hash[prev_hs]<2) board_hash[prev_hs]++;
-    else if(move_choices.size()>1)
+    if(our_piece_points(b)==10)
     {
-        this->best_move=move_choices[move_choices.size()-2].second;
-        c.do_move_(this->best_move);
-        prev_hs=board_to_str(&(c.data));
-        undo_last_move(c,this->best_move);
-        board_hash[prev_hs]++;
+        this->best_move=move_choices.back().second;
     }
-    
 
-    int depth_cutoff=1;
-    //vary time with number of moves
-
-    double total_time=0;
-    double time_left=this->time_left.count();
-    if(current_move<=3) total_time=std::min(1000*factor,time_left);
-    else if(current_move<=6) total_time=std::min(1500*factor,time_left);
-    else if(time_left>10000*factor)
-    {
-        if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=500*factor;
-        else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=1500*factor;
-        else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=2500*factor;
-        else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=4000*factor;
-        else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=5000*factor;
-        else total_time=1000*factor;
-
-        // double time_value=500*piece_time_contribution(b);
-        // if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=std::min(500*factor,time_value);
-        // else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=std::min(1500*factor,time_value);
-        // else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=std::min(2500*factor,time_value);
-        // else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=std::min(3500*factor,1.5*time_value);
-        // else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=std::min(4500*factor,2*time_value);
-        // else total_time=std::min(6000*factor,2.5*time_value);
-
-        total_time=std::min(total_time,time_left);
-    }
     else
     {
-        total_time=std::min(100*factor,time_left);
-    }
+        std::vector<int> v{0,1,2,3,4};
+        std::shuffle(v.begin(),v.end(),rng);
+        if(v[0]!=0) std::sort(move_choices.begin(),move_choices.end());
 
-    while(true)
-    {
-        std::cout<<"Starting alpha beta at depth: "<<depth_cutoff<<std::endl;
-        nodes_visited=0;
-        pruned=0;
+        Board c(b);
+        this->best_move=move_choices.back().second;
+        c.do_move_(this->best_move);
+        std::string prev_hs=board_to_str(&(c.data));
+        undo_last_move(c,this->best_move);
 
-        std::pair<int,U16> play_move=alpha_beta_pruning(c,-inf,inf,depth_cutoff,total_time);
-
-        if(get_time_left(total_time) < time_buffer) break;
-        else if(play_move.second != 0)
+        if(board_hash[prev_hs]<2) board_hash[prev_hs]++;
+        else if(move_choices.size()>1)
         {
-            c.do_move_(play_move.second);
-            std::string hs=board_to_str(&(c.data));
-            undo_last_move(c,play_move.second);
-            if(board_hash[hs]<2)
-            {
-                //update best_move
-                this->best_move=play_move.second;
-                board_hash[prev_hs]--;
-                board_hash[hs]++;
-                prev_hs=hs;
-            }
+            this->best_move=move_choices[move_choices.size()-2].second;
+            c.do_move_(this->best_move);
+            prev_hs=board_to_str(&(c.data));
+            undo_last_move(c,this->best_move);
+            board_hash[prev_hs]++;
         }
-        //so we completed the search at this depth
-        std::cout<<"Completed alpha beta at depth: "<<depth_cutoff<<std::endl;
-        std::cout<<"Nodes visited: "<<nodes_visited<<std::endl;
-        std::cout<<"Pruned nodes: " << pruned << std::endl;
-        std::cout<<"Move found at depth: "<<depth_cutoff<<" is: "<<move_to_str(play_move.second)<<std::endl;
-        std::cout<<"Time remaining: "<<get_time_left(total_time)<<std::endl;
-        depth_cutoff++;
+        
+
+        int depth_cutoff=1;
+        //vary time with number of moves
+
+        double total_time=0;
+        double time_left=this->time_left.count();
+        if(current_move<=3) total_time=std::min(1000*factor,time_left);
+        else if(current_move<=6) total_time=std::min(1500*factor,time_left);
+        else if(time_left>10000*factor)
+        {
+            if(our_piece_points(b)-opponent_piece_points(b)>10) total_time=500*factor;
+            else if(our_piece_points(b)-opponent_piece_points(b)>6) total_time=1500*factor;
+            else if(our_piece_points(b)>=opponent_piece_points(b)) total_time=2500*factor;
+            else if(our_piece_points(b)-opponent_piece_points(b) > -4) total_time=4000*factor;
+            else if(our_piece_points(b)-opponent_piece_points(b) > -6) total_time=5000*factor;
+            else total_time=1000*factor;
+
+            total_time=std::min(total_time,time_left);
+        }
+        else
+        {
+            total_time=std::min(100*factor,time_left);
+        }
+
+        while(true)
+        {
+            std::cout<<"Starting alpha beta at depth: "<<depth_cutoff<<std::endl;
+            nodes_visited=0;
+            pruned=0;
+
+            std::pair<int,U16> play_move=alpha_beta_pruning(c,-inf,inf,depth_cutoff,total_time);
+
+            if(get_time_left(total_time) < time_buffer) break;
+            else if(play_move.second != 0)
+            {
+                c.do_move_(play_move.second);
+                std::string hs=board_to_str(&(c.data));
+                undo_last_move(c,play_move.second);
+                if(board_hash[hs]<2)
+                {
+                    //update best_move
+                    this->best_move=play_move.second;
+                    board_hash[prev_hs]--;
+                    board_hash[hs]++;
+                    prev_hs=hs;
+                }
+            }
+            //so we completed the search at this depth
+            std::cout<<"Completed alpha beta at depth: "<<depth_cutoff<<std::endl;
+            std::cout<<"Nodes visited: "<<nodes_visited<<std::endl;
+            std::cout<<"Pruned nodes: " << pruned << std::endl;
+            std::cout<<"Move found at depth: "<<depth_cutoff<<" is: "<<move_to_str(play_move.second)<<std::endl;
+            std::cout<<"Time remaining: "<<get_time_left(total_time)<<std::endl;
+            depth_cutoff++;
+        }
     }
 }
